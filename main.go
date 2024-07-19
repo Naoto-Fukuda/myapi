@@ -1,28 +1,30 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
-	"github.com/Naoto-Fukuda/myapi/handlers"
-	"github.com/gorilla/mux"
-)
 
+	"github.com/Naoto-Fukuda/myapi/api"
+	_ "github.com/go-sql-driver/mysql"
+)
+var (
+	dbUser = "docker"
+	dbPassword = "docker"
+	dbDatabase = "sampledb"
+	dbConn = fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s?parseTime=true", dbUser,
+	dbPassword, dbDatabase)
+	)
 
 func main() {
-	r := mux.NewRouter()
+	db, err := sql.Open("mysql", dbConn)
+		if err != nil {
+			log.Println("fail to connect DB")
+			return
+	}
 
-	// http.HandleFunc("/hello", handlers.HelloHandler)
-	// http.HandleFunc("/article", handlers.PostArticleHandler)
-	// http.HandleFunc("/article/list", handlers.ArticleListHandler)
-	// http.HandleFunc("/article/1", handlers.ArticleDetailHandler)
-	// http.HandleFunc("/article/nice", handlers.PostNiceHandler)
-	// http.HandleFunc("/article/comment", handlers.PostCommentHandler)
-
-	r.HandleFunc("/article", handlers.PostArticleHandler).Methods(http.MethodPost)
-	r.HandleFunc("/article/list", handlers.ArticleListHandler).Methods(http.MethodGet)
-	r.HandleFunc("/article/{id:[0-9]+}", handlers.ArticleDetailHandler).Methods(http.MethodGet)
-	r.HandleFunc("/article/nice", handlers.PostNiceHandler).Methods(http.MethodPost)
-	r.HandleFunc("/comment", handlers.PostCommentHandler).Methods(http.MethodPost)
+	r := api.NewRouter(db)
 
 	log.Println("server start at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
