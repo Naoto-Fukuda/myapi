@@ -5,11 +5,12 @@ import (
 	// "errors"
 	// "fmt"
 	// "io"
-	"log"
+	// "log"
 	"net/http"
 	"strconv"
 
 	"github.com/Naoto-Fukuda/myapi/models"
+	"github.com/Naoto-Fukuda/myapi/services"
 	"github.com/gorilla/mux"
 )
 
@@ -38,7 +39,11 @@ func PostArticleHandler(w http.ResponseWriter, req *http.Request){
 		http.Error(w, "fail to decode json\n", http.StatusBadRequest)
 	}
 
-	article := reqArticle
+	article, err := services.PostArticleService(reqArticle)
+	if err != nil {
+		http.Error(w, "fail internal exec\n", http.StatusInternalServerError)
+		return
+	}
 
 	// if err := json.Unmarshal(reqBodyBuffer, &reqArticle); err != nil {
 	// 	http.Error(w, "fail to decode json≠\n", http.StatusBadRequest)
@@ -76,10 +81,11 @@ func ArticleListHandler(w http.ResponseWriter, req *http.Request){
 			page = 1
 	}
 
-	// 暫定でこれを追加することで
-	// 「変数pageが使われていない」というコンパイルエラーを回避
-	log.Println(page)
-	articleList := []models.Article{models.Article1, models.Article2}
+	articleList, err := services.GetArticleListService(page)
+	if err != nil {
+		http.Error(w, "fail internal exec\n", http.StatusInternalServerError)
+		return
+	}
 	json.NewEncoder(w).Encode(articleList)
 }
 
@@ -89,10 +95,13 @@ func ArticleDetailHandler(w http.ResponseWriter, req *http.Request){
 	if err != nil {
 		http.Error(w, "Invalid query parameter", http.StatusBadRequest)
 	}
-	// 暫定でこれを追加することで
-	// 「変数articleIDが使われていない」というコンパイルエラーを回避
-	log.Println(articleID)
-	article := models.Article1
+
+	article, err := services.GetArticleService(articleID)
+	if err != nil {
+		http.Error(w, "fatal internal exec\n", http.StatusInternalServerError)
+		return
+	}
+
 	json.NewEncoder(w).Encode(article)
 }
 
@@ -103,7 +112,12 @@ func PostNiceHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "fail to decode json\n", http.StatusBadRequest)
 	}
 
-	article := reqArticle
+	article, err := services.PostArticleService(reqArticle)
+	if err != nil {
+		http.Error(w, "fatal internal exec\n", http.StatusInternalServerError)
+		return
+	}
+	
 	json.NewEncoder(w).Encode(article)
 }
 
@@ -114,6 +128,11 @@ func PostCommentHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "fail to decode json\n", http.StatusBadRequest)
 	}
 
-	comment := reqComment
+	comment, err := services.PostCommentService(reqComment)
+	if err != nil {
+		http.Error(w, "fatal internal exec\n", http.StatusInternalServerError)
+		return
+	}
+
 	json.NewEncoder(w).Encode(comment)
 }
