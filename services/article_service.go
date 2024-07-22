@@ -3,28 +3,51 @@ package services
 import (
 	"database/sql"
 	"errors"
+	"sync"
 
 	"github.com/Naoto-Fukuda/myapi/apperrors"
 	"github.com/Naoto-Fukuda/myapi/models"
 	"github.com/Naoto-Fukuda/myapi/repositories"
+	"golang.org/x/tools/go/analysis/passes/defers"
 )
 
 func (s *MyAppService) GetArticleService(articleID int) (models.Article, error) {
-	article, err := repositories.SelectArticleDetail(s.db, articleID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows){
-			err = apperrors.NAData.Wrap(err, "no data")
-			return models.Article{}, err
-		}
+	var article models.Article
+	var commentList []models.Comment
+	var articleGetErr, commentGetErr error
 
-		apperrors.GetDataFailed.Wrap(err, "fail to get data")
-		return models.Article{}, err
+	var amu sync.Mutex
+	var cmu sync.Mutex
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func(db *sql.DB, articleID int) {
+		defer wg.Done()
+		amu.Lock()
+		article, articleGetErr = repositories.SelectArticleDetail(db, articleID)
+		amu.Unlock()
+	}(s.db, articleID)
+
+	go func (db *sql.DB, articleID int) {
+		defer wg.Done()
+		cmu.Lock()
+		commentList, commentGetErr = repositories.SelectCommentList(db, articleID)
+		cmu.Unlock()
+	}(s.db, articleID)
+
+	wg.Wait()
+
+	if articleGetErr != nil {
+		if errors.Is(articleGetErr, sql.ErrNoRows){
+			articleGetErr = apperrors.NAData.Wrap(articleGetErr, "no data")
+			return models.Article{}, articleGetErr
+		}
 	}
-	
-	commentList, err := repositories.SelectCommentList(s.db, articleID)
-	if err != nil {
-		err = apperrors.GetDataFailed.Wrap(err, "fail to get data")
-		return models.Article{}, err
+
+	if commentGetErr != nil {
+		commentGetErr = apperrors.GetDataFailed.Wrap(commentGetErr, "fail to get data")
+		return models.Article{}, commentGetErr
 	}
 
 	article.CommentList = append(article.CommentList, commentList...)
